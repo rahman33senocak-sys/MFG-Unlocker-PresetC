@@ -180,7 +180,6 @@ struct MfgUnlockReShadeSnapshot
     BOOL ampereProgramReadyMfg = FALSE;
     uint32_t ampereKernelImage = 0;
     uint32_t ampereNativeCacheStatus = 0;
-    BOOL ampereFgLiteKernelPrepared = FALSE; // Published 310.9.16 slot 1; not a GPU-dispatch trace.
     uint32_t ampereCertifiedMaximum = 0;
     uint32_t ampereFailure = 0;
     uint64_t presetQueries = 0;
