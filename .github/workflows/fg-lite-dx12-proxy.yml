@@ -25,7 +25,7 @@ jobs:
         shell: cmd
         run: |
           call "%ProgramFiles%\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=amd64 -host_arch=amd64
-          cl /nologo /std:c++20 /EHsc /MT /O2 /W4 /LD /I ngx-sdk experiments\fg_lite_provider\preset_c_proxy.cpp /link /OUT:nvngx_dlssg.dll
+          cl /nologo /std:c++20 /EHsc /MT /O2 /W4 /LD /I ngx-sdk experiments\fg_lite_provider\preset_c_proxy.cpp /link /OUT:nvngx_dlssg.dll user32.lib
           if errorlevel 1 exit /b 1
           dumpbin /exports nvngx_dlssg.dll > exports.txt
           findstr /c:"NVSDK_NGX_D3D12_CreateFeature" exports.txt
