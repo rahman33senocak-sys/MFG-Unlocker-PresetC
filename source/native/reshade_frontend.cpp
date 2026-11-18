@@ -93,6 +93,8 @@ int gDynamicTargetFrameRate = 0;
 bool gDynamicLockToRefreshRate = true;
 int gDynamicCustomTargetFrameRate = 60;
 int gDlssgPreset = 0; // latency.1: game / driver by default
+// Local menu diagnostic: not part of the external ReShade snapshot ABI.
+std::atomic<bool> gFgLiteKernelPrepared{false};
 // DLSS Super Resolution preset: 0 game/driver, 10..13 J..M.
 uint32_t gDlssSrPreset = 0;
 // DLSS 5 tab: the edited settings; sliders save while dragging at
@@ -485,7 +487,9 @@ BOOL WINAPI NativeFileGetSnapshot(MfgUnlockReShadeSnapshot* snapshot)
             ParseJsonBool(status, "ampereProgramReadyMfg", output.ampereProgramReadyMfg);
             ParseJsonInteger(status, "ampereKernelImage", output.ampereKernelImage);
             ParseJsonInteger(status, "ampereNativeCacheStatus", output.ampereNativeCacheStatus);
-            ParseJsonBool(status, "ampereFgLiteKernelPrepared", output.ampereFgLiteKernelPrepared);
+            BOOL fgLiteReady = FALSE;
+            ParseJsonBool(status, "ampereFgLiteKernelPrepared", fgLiteReady);
+            gFgLiteKernelPrepared.store(fgLiteReady != FALSE, std::memory_order_release);
             ParseJsonInteger(status, "ampereCertifiedMaximum", output.ampereCertifiedMaximum);
             ParseJsonInteger(status, "ampereFailure", output.ampereFailure);
             ParseJsonInteger(status, "presetQueries", output.presetQueries);
@@ -6176,7 +6180,7 @@ void DrawSettings(reshade::api::effect_runtime* runtime)
                         && snapshot.dlssgPresetOverrideReadCount > 0;
                     ImGui::Text("Preset C config: %s | FG Lite program: %s",
                         consumed ? "provider read C" : "not confirmed",
-                        snapshot.ampereFgLiteKernelPrepared ? "published" : "not verified");
+                        gFgLiteKernelPrepared.load(std::memory_order_acquire) ? "published" : "not verified");
                     ImGui::TextDisabled("Program publication does not prove GPU FG Lite dispatch or faster FPS.");
                 }
                 if (snapshot.ampereFailure)
