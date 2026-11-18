@@ -301,6 +301,7 @@ struct PublishedProgram
     std::array<uint32_t, kMaximumKernelCount> allocationBytes{};
     std::array<std::array<uint8_t, kDescriptorBytes>, kMaximumKernelCount> descriptors{};
     size_t slotCount = kKernelCount;
+    bool fgLiteSlot = false; // Verified 310.9.16 named slot 1; no assertion about GPU dispatch.
     std::shared_ptr<FontProgram> font;
     std::shared_ptr<TuringNetworkProgram> network;
 };
@@ -1504,6 +1505,8 @@ bool PatchProvider(HMODULE module, const wchar_t* path, const PreparationBoundar
     candidate.module = module; candidate.pinned = pinned;
     candidate.luid = luid; candidate.table = table; candidate.boundary = boundary;
     candidate.slotCount = slotCount;
+    candidate.fgLiteSlot = dlssg_provider_policy::ImplementsPresetC(version)
+        && slotCount == k310916KernelCount;
     const bool turing = gTargetSm.load(std::memory_order_acquire) == 75;
     ampere_native_cache::CompleteProgram ptxProgram, nativeProgram;
     std::vector<uint8_t> fontPtx, fontNative;
@@ -1710,6 +1713,16 @@ uint32_t KernelImage() noexcept
 {
     const auto* program = gSelectedProgram.load(std::memory_order_acquire);
     return Ready() && program ? program->kernelImage : 0;
+}
+bool FgLiteKernelPrepared() noexcept
+{
+    const auto* program = gSelectedProgram.load(std::memory_order_acquire);
+    // Publication validates all named descriptors and native/PTX payloads before
+    // selecting a program. Even this positive result cannot establish that the
+    // runtime dispatched BlendCandidatesFGLite for a particular frame.
+    return Ready() && program && program->fgLiteSlot
+        && program->slotCount == k310916KernelCount
+        && program->replacements[0] && program->replacements[1];
 }
 uint32_t NativeCacheStatus() noexcept
 {

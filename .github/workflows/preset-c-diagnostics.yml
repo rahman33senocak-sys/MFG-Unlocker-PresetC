@@ -1,0 +1,13 @@
+name: Preset C diagnostic tests
+on:
+  push:
+    branches: [fix/preset-c-validation-310916]
+  pull_request:
+
+jobs:
+  diagnostic-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python regression tests
+        run: python3 -m unittest discover -s tests/preset_c_validation -p "test_*.py"

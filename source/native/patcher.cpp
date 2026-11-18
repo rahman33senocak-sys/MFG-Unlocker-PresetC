@@ -3292,7 +3292,8 @@ bool WriteBridgeStatus(const ControlConfig& control, DWORD pid, bool disk = true
             "\"ampereOutputReuseLatches\":%llu,\"ampereFlipMeteringFilterInstalled\":%s,"
             "\"ampereFlipMeteringResolverRouted\":%s,"
             "\"ampereWrapperNvapiFilters\":%llu,\"ampereFlipMeteringHidden\":%llu,"
-            "\"ampereKernelImage\":%u,\"ampereNativeCacheStatus\":%u,\"ampereCertifiedMaximum\":%u,"
+            "\"ampereKernelImage\":%u,\"ampereNativeCacheStatus\":%u,"
+            "\"ampereFgLiteKernelPrepared\":%s,\"ampereCertifiedMaximum\":%u,"
             "\"ampereFirstFailure\":%u,"
             "\"ampereFirstNgxResult\":%u,"
             "\"amperePrimaryFailure\":%u,"
@@ -3323,6 +3324,7 @@ bool WriteBridgeStatus(const ControlConfig& control, DWORD pid, bool disk = true
             static_cast<unsigned long long>(gWrapperNvapiFilters.load(std::memory_order_relaxed)),
             static_cast<unsigned long long>(gFlipMeteringHidden.load(std::memory_order_relaxed)),
             ampere_gpu::KernelImage(), ampere_gpu::NativeCacheStatus(),
+            ampere_gpu::FgLiteKernelPrepared() ? "true" : "false",
             ampere_backend::CertifiedMaximumGeneratedFrames(),
             diagnostic.first.code,
             diagnostic.first.ngxResult,

@@ -39,6 +39,10 @@ bool Ready() noexcept;
 uint32_t FailureCode() noexcept;
 uint32_t PreparationStage() noexcept;
 uint32_t KernelImage() noexcept;
+// True only when the bound 310.9.16 provider has a complete published 26-slot
+// Ampere program including the FG Lite slot. This is preparation evidence,
+// NOT proof that Preset C launched on the GPU or improved frame time.
+bool FgLiteKernelPrepared() noexcept;
 uint32_t NativeCacheStatus() noexcept;
 uint64_t AdapterLuid() noexcept;
 uint64_t Publication() noexcept;
