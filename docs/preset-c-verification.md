@@ -23,6 +23,45 @@ The in-game **Debug → Ampere** section displays this separately from the
 prove that `BlendCandidatesFGLite` was launched by the CUDA driver.
 Neither field measures GPU time, GPU utilization, or delivered FPS.
 
+## Experimental NGX FG Lite pin (this branch)
+
+The upstream 310.9.16 DRS preset value `3` is already observed in the
+007 First Light status snapshot; it does **not** prove that the separate
+`DLSSG.LiteCandidateBlendingEnabled` feature parameter reached the runtime.
+
+This branch adds a narrow Create-boundary experiment in
+`ampere_backend.cpp`, for D3D12 and Vulkan:
+
+- Only a verified, prepared 26-slot Ampere program with the
+  `BlendCandidatesFGLite` slot can enter the helper.
+- The selection must be requested and latched at **3**, with no pending
+  restart; other presets, DLSS SR/RR and DLSS 5 are left untouched.
+- At FG Create (not every Evaluate), the NGX parameter map receives
+  `DLSSG.LiteCandidateBlendingEnabled=1` and
+  `DLSSG.UserInterfaceRecompositionEnabled=0`.
+- The helper reads both keys back. A log record beginning
+  `PRESET_C_LITE_CREATE` reports `pinned=1` only when both readbacks
+  match; `pinned=0` or `exception=1` means the parameters could not
+  be verified. With no record, the guarded path was not entered.
+- The key may be encountered once in the runtime Create and again in its
+  nested provider Create. Re-pinning is intentionally idempotent.
+
+**What this cannot prove:** that the NVIDIA runtime actually selects the
+FG Lite CUDA kernel, that the player's overlay changes from "Full" to
+"Lite", or that GPU cost/FPS improves. A Create-parameter readback is
+not a CUDA launch trace. If `pinned=1` but the display still says
+"Full", compare GPU-side kernel launches, not the NVAPI preset menu value.
+Please keep the original `.asi` backed up and do not assume the debug
+build is production-safe.
+
+### Portable checks
+
+The workflow runs both Python status-regression tests and a portable C++
+fake NGX parameter test (`tests/preset_c_validation/fg_lite_params_test.cpp`).
+These check policy, readback, absent keys, and idempotence. They do **not**
+compile `ampere_backend.cpp` under MSVC or execute GPU kernels. A validated
+Windows build and on-device A/C comparison remain required.
+
 ## Read a captured status file
 
 ```powershell
