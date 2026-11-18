@@ -13,6 +13,7 @@
 #include "dlssg_provider_policy.h"
 #include "dlssg_provider_selection.h"
 #include "dlssg_preset.h"
+#include "dlssg_fg_lite_params.h"
 #include "dlss_sr.h"
 #include "dlss5.h"
 #include "dlss5_d3d11.h"
@@ -1305,6 +1306,47 @@ template<size_t I> __declspec(noinline) bool Preset(uint32_t setting, uint32_t* 
     return result;
 }
 
+
+// The first FG Create can cache NGX parameters before the driver's DRS
+// selection is consumed. Pin both groups at this boundary, not at the
+// per-frame Evaluate, and only for a prepared 310.9.16/26-slot Ampere program.
+// Readback proves the parameter map was changed, NOT that the Lite CUDA kernel
+// was dispatched; GPU profiling or an A/C timing test is still required.
+void PinPresetCLiteAtCreate(const NVSDK_NGX_Parameter* parameters,
+    bool routePrepared, const wchar_t* api) noexcept
+{
+    if (!parameters || !routePrepared || !ampere_gpu::FgLiteKernelPrepared())
+        return;
+    const auto selection = dlssg_preset::ReadSelection();
+    if (!dlssg_fg_lite_params::ShouldPin(true, selection.requested,
+            selection.latched, selection.restartRequired))
+        return;
+
+    dlssg_fg_lite_params::Readback readback{};
+    bool exception = false;
+    __try
+    {
+        readback = dlssg_fg_lite_params::Pin(
+            *const_cast<NVSDK_NGX_Parameter*>(parameters), NVSDK_NGX_Result_Success);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER)
+    {
+        exception = true;
+    }
+    wchar_t message[320]{};
+    swprintf_s(message,
+        L"PRESET_C_LITE_CREATE api=%ls pinned=%u exception=%u "
+        L"liteBefore=%u/%u liteAfter=%u/%u uiBefore=%u/%u uiAfter=%u/%u "
+        L"(NGX map only, not CUDA dispatch)",
+        api, static_cast<unsigned>(readback.Pinned() && !exception),
+        static_cast<unsigned>(exception),
+        static_cast<unsigned>(readback.liteBeforeValid), readback.liteBefore,
+        static_cast<unsigned>(readback.liteAfterValid), readback.liteAfter,
+        static_cast<unsigned>(readback.uiBeforeValid), readback.uiBefore,
+        static_cast<unsigned>(readback.uiAfterValid), readback.uiAfter);
+    Report(message);
+}
+
 void ObserveCreateDevice(ID3D12GraphicsCommandList* command) noexcept
 {
     if (!command) return;
@@ -1484,6 +1526,7 @@ template<size_t I> NVSDK_NGX_Result NVSDK_CONV Create(ID3D12GraphicsCommandList*
     Route* provider = nullptr;
     attempt.forwarded = true;
     uint64_t createAttemptToken = 0;
+    PinPresetCLiteAtCreate(parameters, route.prepared, L"D3D12");
     const NVSDK_NGX_Result result = InvokeCreate(route, provider, *wrapper, capacity, createAttemptToken,
         [&]() -> NVSDK_NGX_Result {
             const auto dispatch = route.runtime ? ngx_runtime_dispatch::Read(entry_detour::ReadSnapshot(route.create),
@@ -2627,6 +2670,7 @@ NVSDK_NGX_Result VulkanCreate(size_t I, VulkanCreateCall call, bool create1, con
     uint64_t createAttemptToken = 0;
     // The runtime's Vulkan dispatch table has no recognized layout; the nested
     // provider gate and its prepared-route checks bind the provider.
+    PinPresetCLiteAtCreate(call.parameters, route.prepared, L"Vulkan");
     const NVSDK_NGX_Result result = InvokeCreate(route, provider, *wrapper, capacity, createAttemptToken,
         [&] { return call.Forward(); });
     FeatureLifetimeEvent createdEvent{};

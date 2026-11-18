@@ -1,7 +1,7 @@
 name: Preset C diagnostic tests
 on:
   push:
-    branches: [fix/preset-c-validation-310916]
+    branches: [fix/preset-c-validation-310916, fix/fg-lite-create-parameter-pin]
   pull_request:
 
 jobs:
@@ -11,3 +11,29 @@ jobs:
       - uses: actions/checkout@v4
       - name: Python regression tests
         run: python3 -m unittest discover -s tests/preset_c_validation -p "test_*.py"
+      - name: Portable C++ FG Lite parameter tests
+        run: |
+          g++ -std=c++20 -O2 -Wall -Wextra -Werror tests/preset_c_validation/fg_lite_params_test.cpp -o /tmp/fg_lite_params_test
+          /tmp/fg_lite_params_test
+
+  windows-msvc:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile FG Lite pin contract with Visual Studio 2022
+        shell: cmd
+        run: |
+          call "%ProgramFiles%\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\Tools\\VsDevCmd.bat" -arch=amd64 -host_arch=amd64
+          cl /nologo /std:c++20 /EHsc /W4 /WX tests\\preset_c_validation\\fg_lite_params_test.cpp /Fe:fg_lite_params_test.exe
+          if errorlevel 1 exit /b 1
+          fg_lite_params_test.exe
+          if errorlevel 1 exit /b 1
+      - name: MSVC compile and exercise actual patched Create-boundary function
+        shell: cmd
+        run: |
+          python tests\\preset_c_validation\\generate_create_boundary_smoke.py
+          call "%ProgramFiles%\\Microsoft Visual Studio\\2022\\Enterprise\\Common7\\Tools\\VsDevCmd.bat" -arch=amd64 -host_arch=amd64
+          cl /nologo /std:c++20 /EHsc /W4 /WX tests\\preset_c_validation\\generated_create_boundary_smoke.cpp /Fe:create_boundary_smoke.exe
+          if errorlevel 1 exit /b 1
+          create_boundary_smoke.exe
+          if errorlevel 1 exit /b 1
